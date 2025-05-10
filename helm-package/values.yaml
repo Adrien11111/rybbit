@@ -1,0 +1,47 @@
+# Default values for rybbit.
+
+domain_name: "demo.rybbit.io" # The domain name for the application. This is used for generating links and redirects.
+better_auth_secret: "insecure-secret" # The secret used by you app PLEASE CHANGE THIS
+
+disable_signup: "false"
+
+nameOverride: ""
+fullnameOverride: ""
+
+namespaceOverride: "rybbit"
+
+image:
+  tag: latest
+
+# Clickhouse configuration
+clickhouse:
+  db: analytics
+  user: default
+  password: frog
+  volumes:
+    data:
+      size: 5Gi
+      storageClass: ""
+    config:
+      size: 200Gi
+      storageClass: ""
+
+# Postgres configuration
+postgres:
+  db: analytics
+  user: frog
+  password: frog
+  volumes:
+    data:
+      size: 5Gi
+      storageClass: ""
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  tls: 
+    enabled: true
+    secretName: rybbit-tls
+
+replicaCount: 1

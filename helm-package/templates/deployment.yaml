@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rybbit.fullname" . }}
+  labels:
+    {{- include "rybbit.labels" . | nindent 4 }}
+  namespace: {{ .Values.namespaceOverride | default .Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "rybbit.selectorLabels" . | nindent 6 }}
+      app: {{ include "rybbit.fullname" . }}
+  template:
+    metadata:
+      labels:
+        {{- include "rybbit.selectorLabels" . | nindent 8 }}
+        app: {{ include "rybbit.fullname" . }}
+    spec:
+      containers:
+        - name: backend
+          image: "ghcr.io/rybbit-io/rybbit-backend:{{ .Values.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: CLICKHOUSE_HOST
+              value: http://svc-clusterip-rybbit-database-http:8123
+            - name: CLICKHOUSE_DB
+              value: {{ .Values.clickhouse.db | quote }}
+            - name: CLICKHOUSE_PASSWORD
+              value: {{ .Values.clickhouse.password | quote }}
+            - name: POSTGRES_HOST
+              value: svc-clusterip-rybbit-database
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.db | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.password | quote }}
+            - name: BETTER_AUTH_SECRET
+              value: {{ .Values.better_auth_secret | quote }}
+            - name: BASE_URL
+              value: "http{{ .Values.ingress.tls.enabled | ternary "s" "" }}://{{ .Values.domain_name }}"
+            - name: DISABLE_SIGNUP
+              value: {{ .Values.disable_signup | quote }}
+        - name: client
+          image: "ghcr.io/rybbit-io/rybbit-client:{{ .Values.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3002
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: NEXT_PUBLIC_BACKEND_URL
+              value: "http{{ .Values.ingress.tls.enabled | ternary "s" "" }}://{{ .Values.domain_name }}"

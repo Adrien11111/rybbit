@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rybbit-database
+  labels:
+    {{- include "rybbit.labels" . | nindent 4 }}
+  namespace: {{ .Values.namespaceOverride | default .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: rybbit-database
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: rybbit-database
+    spec:
+      containers:
+        - name: clickhouse
+          image: "clickhouse/clickhouse-server:25.4.2"
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo '<clickhouse><settings><enable_json_type>1</enable_json_type></settings></clickhouse>' > /etc/clickhouse-server/config.d/logging_rules.xml
+              echo '<clickhouse><logger><level>warning</level><console>true</console></logger><query_thread_log remove="remove"/><query_log remove="remove"/><text_log remove="remove"/><trace_log remove="remove"/><metric_log remove="remove"/><asynchronous_metric_log remove="remove"/><session_log remove="remove"/><part_log remove="remove"/></clickhouse>' > /etc/clickhouse-server/config.d/logging_rules.xml
+              echo '<clickhouse><listen_host>0.0.0.0</listen_host></clickhouse>' > /etc/clickhouse-server/config.d/network.xml
+              echo '<clickhouse><profiles><default><log_queries>0</log_queries><log_query_threads>0</log_query_threads></default></profiles></clickhouse>' > /etc/clickhouse-server/config.d/user_logging.xml
+              exec /entrypoint.sh
+          ports:
+            - name: http
+              containerPort: 8123
+              protocol: TCP
+            - name: tcp
+              containerPort: 9000
+              protocol: TCP
+          env:
+            - name: CLICKHOUSE_DB
+              value: {{ .Values.clickhouse.db | quote }}
+            - name: CLICKHOUSE_USER
+              value: {{ .Values.clickhouse.user | quote }}
+            - name: CLICKHOUSE_PASSWORD
+              value: {{ .Values.clickhouse.password | quote }}
+          volumeMounts:
+            - name: clickhouse-data
+              mountPath: /var/lib/clickhouse
+            - name: clickhouse-config
+              mountPath: /etc/clickhouse-server/config.d
+        - name: postgres
+          image: "postgres:17.4"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: tcp
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.db | quote }}
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: clickhouse-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.clickhouse.volumes.data.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.clickhouse.volumes.data.size }}
+    - metadata:
+        name: clickhouse-config
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.clickhouse.volumes.config.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.clickhouse.volumes.config.size }}
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.postgres.volumes.data.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.volumes.data.size }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Retain
