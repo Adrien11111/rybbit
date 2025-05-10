@@ -18,6 +18,35 @@ spec:
         app: {{ include "rybbit.fullname" . }}
     spec:
       containers:
+        - name: nginx
+          image: "nginx:1.27.5"
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo 'server {
+                listen 80;
+                location /api/ {
+                  proxy_pass http://localhost:3001/;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                }
+                location / {
+                  proxy_pass http://localhost:3002/;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                }
+              }' > /etc/nginx/conf.d/default.conf
+              nginx -g 'daemon off;'
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
         - name: backend
           image: "ghcr.io/rybbit-io/rybbit-backend:{{ .Values.image.tag }}"
           imagePullPolicy: IfNotPresent

@@ -36,7 +36,10 @@ postgres:
       size: 5Gi
       storageClass: ""
 
+# Either Traefik or Nginx ingress controller
 ingress:
+  isTraefik: true 
+  isNginx: false
   enabled: true
   className: ""
   annotations: {}

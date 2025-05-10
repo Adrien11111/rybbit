@@ -1,19 +1,26 @@
 {{- if .Values.ingress.enabled -}}
+
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "rybbit.fullname" . }}
   labels:
     {{- include "rybbit.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
   namespace: {{ .Values.namespaceOverride | default .Release.Namespace }}
-  {{- if .Values.ingress.className }}
   annotations:
-    kubernetes.io/ingress.class: {{ .Values.ingress.className | quote }}
-  {{- end }}
+    {{- if .Values.ingress.isTraefik }}
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/redirect-entry-point: websecure
+    traefik.ingress.kubernetes.io/redirect-permanent: "true"
+    {{- else if .Values.ingress.isNginx }}
+    kubernetes.io/tls-acme: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   {{- with .Values.ingress.className }}
   ingressClassName: {{ . }}
@@ -28,18 +35,11 @@ spec:
     - host: {{ .Values.domain_name }}
       http:
         paths:
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: svc-clusterip-rybbit
-                port:
-                  number: 3001
           - path: /
             pathType: Prefix
             backend:
               service:
                 name: svc-clusterip-rybbit
                 port:
-                  number: 3002
+                  number: 80
 {{- end }}
